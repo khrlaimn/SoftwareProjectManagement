@@ -1,7 +1,7 @@
 @extends('layouts.app3')
 @section('content')
     <div class="container">
-    <form method="POST" action="{{ route('BusinessUnit.update', $businessUnit) }}">
+    <form action="{{ route('BusinessUnit.update', $businessUnit->buId) }}" method="post">
 
             @method('PATCH')
             @csrf

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\BusinessUnit;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 
 class BusinessUnitController extends Controller
 {

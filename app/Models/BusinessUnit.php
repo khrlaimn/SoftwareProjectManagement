@@ -14,4 +14,8 @@ class BusinessUnit extends Model
 
     protected $fillable =['picName','requestType','description','status'];
 
+    public function projects(){
+    return $this->hasMany(Projects::class,'buId');
+    }
+
 }
