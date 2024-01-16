@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -12,8 +13,21 @@ class ProjectController extends Controller
      */
     public function index()
     {
-        $projects = Project::all(); // select * from projects
-        return view('project.index',compact('projects'));
+        $user = auth()->user();
+
+        // If the user is a developer, fetch projects where they are the lead or participating
+        if ($user->role === 'Developer') {
+            $projects = Project::where('lead_developer_id', $user->id)
+                ->orWhereHas('developers', function ($query) use ($user) {
+                    $query->where('users.id', $user->id);
+                })
+                ->get();
+        } else {
+            // If the user is a manager, fetch all projects
+            $projects = Project::all();
+        }
+
+        return view('dashboard', compact('projects'));
     }
 
     /**
@@ -21,7 +35,10 @@ class ProjectController extends Controller
      */
     public function create()
     {
-        return view('project.create');
+        $developers = User::where('role', 'Developer')->get();
+        $managers = User::where('role','Manager')->get();
+
+        return view('projects.create', compact('developers', 'managers'));
     }
 
     /**
@@ -29,61 +46,116 @@ class ProjectController extends Controller
      */
     public function store(Request $request)
     {
-            
-        $validated = $request->validate([
-            'name' =>'required|min:4|string|max:255',
-            'start_date' =>'required|date',
-            'end_date' =>'required|date',
-            'duration' =>'required|min:1|Numeric',
-            'leadDeveloper' =>'required|min:3|string',
-            'developer'=>'required|min:3|string',
-            'status' => 'min:3|string'
+        $validatedData = $request->validate([
+            'project_name' => 'required',
+            'business_unit_name' => 'required',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date',
+            'duration' => 'required|numeric',
+            'pic_id' => 'required|exists:users,id,role,Manager',
+            'lead_developer_id' => 'required|exists:users,id,role,Developer',
+            'other_developers' => 'array|exists:users,id,role,Developer',
+            'last_report' => 'nullable|date',
+            'description' => 'nullable|string',
         ]);
 
-        $project = new Project;
-        $project->name = $request->name;
-        $project->start_date = $request->start_date;
-        $project->end_date = $request->end_date;
-        $project->duration = $request->duration;
-        $project->leadDeveloper = $request->leadDeveloper;
-        $project->developer = $request->developer;
-        $project->status = $request->status;
-        $project->save();
+        $project = Project::create($validatedData);
 
-        return redirect()->route('project.index')
-            ->withSuccess('New Poject added successfully');
+        $project->pic_id = $request->input('pic_id');
+        $project->lead_developer_id = $request->input('lead_developer_id');
+
+        if ($request->has('other_developers')) {
+            $project->developers()->attach($request->input('other_developers'));
+        }
+
+        return redirect()->route('dashboard')->with('success', 'Project created successfully');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Project $project)
+    public function edit($id)
     {
-        return view('project.show',compact('project'));
-    }
+        // Fetch the project by ID
+        $project = Project::findOrFail($id);
+        
+        // Fetch developers
+        $developers = User::where('role', 'Developer')->get();
+        $managers = User::where('role','Manager')->get();
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Project $project)
-    {
-        return view('project.edit',compact('project'));
+        return view('projects.edit', compact('project', 'developers', 'managers'));
+
+        if (auth()->user()->isManager()) {
+            // Return the edit view for managers
+            return view('projects.edit', compact('project'));
+        }
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Project $project)
+    public function update(Request $request, $id)
     {
-        //
+        // Validate the form data
+        $validatedData = $request->validate([
+            'project_name' => 'required',
+            'business_unit_name' => 'required',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date',
+            'duration' => 'required|numeric',
+            'pic_id' => 'required|exists:users,id,role,Manager',
+            'lead_developer_id' => 'required|exists:users,id,role,Developer',
+            'other_developers' => 'array|exists:users,id,role,Developer',
+        ]);
+    
+        // Update the project
+        $project = Project::findOrFail($id);
+        $project->update($validatedData);
+    
+        $project->lead_developer_id = $request->input('lead_developer_id');
+        $project->developers()->sync($request->input('other_developers', []));
+
+        return redirect()->route('dashboard')->with('success', 'Project updated successfully');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Project $project)
+    public function destroy($id)
     {
+        // Delete the project by ID
+        $project = Project::findOrFail($id);
         $project->delete();
-        return redirect()->route('project.index');
+    
+        return redirect()->route('dashboard')->with('success', 'Project deleted successfully');
+    }
+
+    public function showUpdateProgressForm($id)
+    {
+        $project = Project::findOrFail($id);
+    
+        if (auth()->user()->id !== $project->lead_developer_id) {
+            return redirect()->route('dashboard')->with('error', 'You are not authorized to edit progress for this project.');
+        }
+    
+        return view('projects.update-progress', compact('project'));
+    }
+
+    public function updateProgress(Request $request, $id)
+    {
+        $project = Project::findOrFail($id);
+
+        // Validate and update only the allowed fields
+        $validatedData = $request->validate([
+            
+            'development_methodology' => 'required|in:Agile Development,DevOps Deployment,Waterfall Development,Rapid Application Development',
+            'system_platform' => 'required|in:Web-based App,Mobile App,Stand-alone App',
+            'deployment_type' => 'required|in:Cloud,On-premises',
+            'status' => 'required|in:Ahead of Schedule,On Schedule,Delayed,Completed',
+            'last_report' => 'nullable|date',
+            'description' => 'required|string',
+        ]);
+
+        // Update the project with the validated data
+        $project->update($validatedData);
+
+        return redirect()->route('dashboard')->with('success', 'Project progress updated successfully');
     }
 }

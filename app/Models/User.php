@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -42,4 +43,24 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class, 'project_user')->withTimestamps();
+    }
+
+    public function isLeadDeveloper()
+    {
+        return $this->role === 'Developer' && $this->leadProjects()->exists();
+    }
+
+    public function leadProjects()
+    {
+        return $this->hasMany(Project::class, 'lead_developer_id');
+    }
+
+    public function isManager()
+    {
+        return $this->role === 'Manager';
+    }
 }

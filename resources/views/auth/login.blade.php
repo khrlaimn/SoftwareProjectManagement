@@ -47,19 +47,7 @@ data-sidebar-position="fixed" data-header-position="fixed">
                     </div>
                 </div>
                 </div>
-
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                          <div class="col-md-6 offset-md-4">
-                              <div class="form-check">
-                                  <input class="form-check-input" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
-
-                                  <label class="form-check-label" for="remember">
-                                      {{ __('Remember Me') }}
-                                  </label>
-                              </div>
-                          </div>
-                      </div>
-
+                
                 <div class="row mb-1">
                     <div class="d-flex align-items-center justify-content-center">
                         <button type="submit" class="btn btn-primary w-100 py-8 fs-4 mb-4 rounded-2">
@@ -67,11 +55,6 @@ data-sidebar-position="fixed" data-header-position="fixed">
                         </button>
                     </div>
                 </div>
-                @if (Route::has('password.request'))
-                    <a class="btn btn-link" href="{{ route('password.request') }}">
-                        {{ __('Forgot Your Password?') }}
-                    </a>
-                @endif
 
 
             </div>

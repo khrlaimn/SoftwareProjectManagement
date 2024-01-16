@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\BusinessUnitController;
 use App\Http\Controllers\ProjectController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -21,12 +21,24 @@ Route::get('/', function () {
 
 Auth::routes();
 
-Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
-
-Route::group(['middleware' => 'auth'], function () {
-
-    Route::resource('BusinessUnit', BusinessUnitController::class);
-
-    Route::resource('project', ProjectController::class);
-    
+Route::middleware(['auth', 'can:view-manager-pages'])->group(function () {
+    Route::get('/projects/create', [ProjectController::class, 'create'])->name('projects.create');
+    Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
+    Route::get('/projects/{id}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+    Route::put('/projects/{id}', [ProjectController::class, 'update'])->name('projects.update');
+    Route::delete('/projects/{id}', [ProjectController::class, 'destroy'])->name('projects.destroy');
 });
+
+Route::middleware(['auth', 'can:view-developer-pages'])->group(function () {
+    Route::get('/projects/{id}/update-progress', [ProjectController::class, 'showUpdateProgressForm'])->name('projects.update-progress-form');
+    Route::put('/projects/{id}/update-progress', [ProjectController::class, 'updateProgress'])->name('projects.update-progress');
+});
+
+Route::get('/dashboard', [ProjectController::class, 'index'])->name('dashboard')->middleware('auth');
+
+Route::get('/logout', function () {
+    Auth::logout();
+    return redirect()->route('login');
+});
+
+
